@@ -1,3 +1,18 @@
+【相关命令：】
+idf.py build
+
+export IDF_TARGET=esp32s3
+
+idf.py set-target esp32s3
+
+idf.py build flash monitor
+
+CONFIG_LWIP_IPV4_NAPT
+
+idf.py menuconfig
+
+
+
 # 小智 AI 聊天机器人
 
 BiliBili 视频介绍 [【ESP32+SenseVoice+Qwen72B打造你的AI聊天伴侣！】](https://www.bilibili.com/video/BV11msTenEH3/?share_source=copy_web&vd_source=ee1aafe19d6e60cf22e60a93881faeba)
