@@ -5,23 +5,20 @@
 #include <string>
 #include <map>
 
-#include <Http.h>
-
 class FirmwareUpgrade {
 public:
-    FirmwareUpgrade(Http& http);
+    FirmwareUpgrade();
     ~FirmwareUpgrade();
 
     void SetCheckVersionUrl(std::string check_version_url);
-    void SetPostData(const std::string& post_data);
     void SetHeader(const std::string& key, const std::string& value);
+    void SetPostData(const std::string& post_data);
     void CheckVersion();
     bool HasNewVersion() { return has_new_version_; }
     void StartUpgrade(std::function<void(int progress, size_t speed)> callback);
     void MarkCurrentVersionValid();
 
 private:
-    Http& http_;
     std::string check_version_url_;
     bool has_new_version_ = false;
     std::string firmware_version_;

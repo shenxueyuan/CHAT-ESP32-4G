@@ -1,12 +1,14 @@
 #include "FirmwareUpgrade.h"
 #include "SystemInfo.h"
+#include "Board.h"
+
 #include <cJSON.h>
 #include <esp_log.h>
 #include <esp_partition.h>
-#include <esp_http_client.h>
 #include <esp_ota_ops.h>
 #include <esp_app_format.h>
 
+#include <cstring>
 #include <vector>
 #include <sstream>
 #include <algorithm>
@@ -14,7 +16,7 @@
 #define TAG "FirmwareUpgrade"
 
 
-FirmwareUpgrade::FirmwareUpgrade(Http& http) : http_(http) {
+FirmwareUpgrade::FirmwareUpgrade() {
 }
 
 FirmwareUpgrade::~FirmwareUpgrade() {
@@ -24,12 +26,12 @@ void FirmwareUpgrade::SetCheckVersionUrl(std::string check_version_url) {
     check_version_url_ = check_version_url;
 }
 
-void FirmwareUpgrade::SetPostData(const std::string& post_data) {
-    post_data_ = post_data;
-}
-
 void FirmwareUpgrade::SetHeader(const std::string& key, const std::string& value) {
     headers_[key] = value;
+}
+
+void FirmwareUpgrade::SetPostData(const std::string& post_data) {
+    post_data_ = post_data;
 }
 
 void FirmwareUpgrade::CheckVersion() {
@@ -41,20 +43,22 @@ void FirmwareUpgrade::CheckVersion() {
         return;
     }
 
+    auto http = Board::GetInstance().CreateHttp();
     for (const auto& header : headers_) {
-        http_.SetHeader(header.first, header.second);
+        http->SetHeader(header.first, header.second);
     }
 
-    if (post_data_.empty()) {
-        http_.Open("GET", check_version_url_);
+    http->SetHeader("Content-Type", "application/json");
+    if (post_data_.length() > 0) {
+        http->SetContent(post_data_);
+        http->Open("POST", check_version_url_);
     } else {
-        http_.SetHeader("Content-Type", "application/json");
-        http_.SetContent(post_data_);
-        http_.Open("POST", check_version_url_);
+        http->Open("GET", check_version_url_);
     }
 
-    auto response = http_.GetBody();
-    http_.Close();
+    auto response = http->GetBody();
+    http->Close();
+    delete http;
 
     // Response: { "firmware": { "version": "1.0.0", "url": "http://" } }
     // Parse the JSON response and check if the version is newer
@@ -130,15 +134,17 @@ void FirmwareUpgrade::Upgrade(const std::string& firmware_url) {
     bool image_header_checked = false;
     std::string image_header;
 
-    if (!http_.Open("GET", firmware_url)) {
+    auto http = Board::GetInstance().CreateHttp();
+    if (!http->Open("GET", firmware_url)) {
         ESP_LOGE(TAG, "Failed to open HTTP connection");
+        delete http;
         return;
     }
 
-    size_t content_length = http_.GetBodyLength();
+    size_t content_length = http->GetBodyLength();
     if (content_length == 0) {
         ESP_LOGE(TAG, "Failed to get content length");
-        http_.Close();
+        delete http;
         return;
     }
 
@@ -146,10 +152,10 @@ void FirmwareUpgrade::Upgrade(const std::string& firmware_url) {
     size_t total_read = 0, recent_read = 0;
     auto last_calc_time = esp_timer_get_time();
     while (true) {
-        int ret = http_.Read(buffer, sizeof(buffer));
+        int ret = http->Read(buffer, sizeof(buffer));
         if (ret < 0) {
             ESP_LOGE(TAG, "Failed to read HTTP data: %s", esp_err_to_name(ret));
-            http_.Close();
+            delete http;
             return;
         }
 
@@ -181,13 +187,13 @@ void FirmwareUpgrade::Upgrade(const std::string& firmware_url) {
                 auto current_version = esp_app_get_description()->version;
                 if (memcmp(new_app_info.version, current_version, sizeof(new_app_info.version)) == 0) {
                     ESP_LOGE(TAG, "Firmware version is the same, skipping upgrade");
-                    http_.Close();
+                    delete http;
                     return;
                 }
 
                 if (esp_ota_begin(update_partition, OTA_WITH_SEQUENTIAL_WRITES, &update_handle)) {
                     esp_ota_abort(update_handle);
-                    http_.Close();
+                    delete http;
                     ESP_LOGE(TAG, "Failed to begin OTA");
                     return;
                 }
@@ -199,11 +205,11 @@ void FirmwareUpgrade::Upgrade(const std::string& firmware_url) {
         if (err != ESP_OK) {
             ESP_LOGE(TAG, "Failed to write OTA data: %s", esp_err_to_name(err));
             esp_ota_abort(update_handle);
-            http_.Close();
+            delete http;
             return;
         }
     }
-    http_.Close();
+    delete http;
 
     esp_err_t err = esp_ota_end(update_handle);
     if (err != ESP_OK) {
