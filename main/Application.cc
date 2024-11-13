@@ -25,8 +25,8 @@ extern const char p3_err_wificonfig_end[] asm("_binary_err_wificonfig_p3_end");
 Application::Application()
     : boot_button_((gpio_num_t)BOOT_BUTTON_GPIO),
       volume_up_button_((gpio_num_t)VOLUME_UP_BUTTON_GPIO),
-      volume_down_button_((gpio_num_t)VOLUME_DOWN_BUTTON_GPIO),
-      display_(DISPLAY_SDA_PIN, DISPLAY_SCL_PIN)
+      volume_down_button_((gpio_num_t)VOLUME_DOWN_BUTTON_GPIO)
+    //   display_(DISPLAY_SDA_PIN, DISPLAY_SCL_PIN)
 {
     event_group_ = xEventGroupCreate();
 
@@ -80,7 +80,7 @@ void Application::CheckNewVersion() {
         firmware_upgrade_.StartUpgrade([this](int progress, size_t speed) {
             char buffer[64];
             snprintf(buffer, sizeof(buffer), "Upgrading...\n %d%% %zuKB/s", progress, speed / 1024);
-            display_.SetText(buffer);
+            // display_.SetText(buffer);
         });
         // If upgrade success, the device will reboot and never reach here
         ESP_LOGI(TAG, "Firmware upgrade failed...");
@@ -92,7 +92,7 @@ void Application::CheckNewVersion() {
 
 void Application::Alert(const std::string&& title, const std::string&& message) {
     ESP_LOGE(TAG, "Alert: %s, %s", title.c_str(), message.c_str());
-    display_.ShowNotification(std::string(title + "\n" + message));
+    // display_.ShowNotification(std::string(title + "\n" + message));
 
     if (message == "PIN is not ready") {
         PlayLocalFile(p3_err_pin_start, p3_err_pin_end - p3_err_pin_start);
@@ -233,14 +233,14 @@ void Application::Start() {
                 volume = 100;
             }
             audio_device_->SetOutputVolume(volume);
-            display_.ShowNotification("Volume\n" + std::to_string(volume));
+            // display_.ShowNotification("Volume\n" + std::to_string(volume));
         });
     });
 
     volume_up_button_.OnLongPress([this]() {
         Schedule([this]() {
             audio_device_->SetOutputVolume(100);
-            display_.ShowNotification("Volume\n100");
+            // display_.ShowNotification("Volume\n100");
         });
     });
 
@@ -251,14 +251,14 @@ void Application::Start() {
                 volume = 0;
             }
             audio_device_->SetOutputVolume(volume);
-            display_.ShowNotification("Volume\n" + std::to_string(volume));
+            // display_.ShowNotification("Volume\n" + std::to_string(volume));
         });
     });
 
     volume_down_button_.OnLongPress([this]() {
         Schedule([this]() {
             audio_device_->SetOutputVolume(0);
-            display_.ShowNotification("Volume\n0");
+            // display_.ShowNotification("Volume\n0");
         });
     });
 
@@ -340,7 +340,7 @@ void Application::Start() {
 #endif
 
     SetChatState(kChatStateIdle);
-    display_.UpdateDisplay();
+    // display_.UpdateDisplay();
 }
 
 void Application::Schedule(std::function<void()> callback) {

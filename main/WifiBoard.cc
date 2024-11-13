@@ -31,12 +31,12 @@ static std::string rssi_to_string(int rssi) {
 
 void WifiBoard::StartNetwork() {
     auto& application = Application::GetInstance();
-    auto& display = application.GetDisplay();
+    // auto& display = application.GetDisplay();
     auto& builtin_led = BuiltinLed::GetInstance();
 
     // Try to connect to WiFi, if failed, launch the WiFi configuration AP
     auto& wifi_station = WifiStation::GetInstance();
-    display.SetText(std::string("Connect to WiFi\n") + wifi_station.GetSsid());
+    // display.SetText(std::string("Connect to WiFi\n") + wifi_station.GetSsid());
     wifi_station.Start();
     if (!wifi_station.IsConnected()) {
         application.Alert("Info", "Configuring WiFi");

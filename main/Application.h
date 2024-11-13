@@ -73,7 +73,7 @@ public:
 
     void Start();
     ChatState GetChatState() const { return chat_state_; }
-    Display& GetDisplay() { return display_; }
+    // Display& GetDisplay() { return display_; }
     void Schedule(std::function<void()> callback);
     void SetChatState(ChatState state);
     void Alert(const std::string&& title, const std::string&& message);
@@ -90,7 +90,7 @@ private:
     Button volume_up_button_;
     Button volume_down_button_;
     AudioDevice* audio_device_ = nullptr;
-    Display display_;
+    // Display display_;
 #ifdef CONFIG_USE_AFE_SR
     WakeWordDetect wake_word_detect_;
     AudioProcessor audio_processor_;

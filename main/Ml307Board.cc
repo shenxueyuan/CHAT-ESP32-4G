@@ -32,8 +32,9 @@ Ml307Board::Ml307Board() : modem_(ML307_TX_PIN, ML307_RX_PIN, 4096) {
 
 void Ml307Board::StartNetwork() {
     auto& application = Application::GetInstance();
-    auto& display = application.GetDisplay();
-    display.SetText(std::string("Wait for network\n"));
+    // auto& display = application.GetDisplay();
+    // display.SetText(std::string("Wait for network\n"));
+
     int result = modem_.WaitForNetworkReady();
     if (result == -1) {
         application.Alert("Error", "PIN is not ready");
@@ -51,8 +52,8 @@ void Ml307Board::StartNetwork() {
 }
 
 void Ml307Board::StartModem() {
-    auto& display = Application::GetInstance().GetDisplay();
-    display.SetText(std::string("Starting modem"));
+    // auto& display = Application::GetInstance().GetDisplay();
+    // display.SetText(std::string("Starting modem"));
     modem_.SetDebug(false);
     modem_.SetBaudRate(921600);
 
