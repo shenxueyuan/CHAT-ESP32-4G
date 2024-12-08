@@ -72,9 +72,9 @@ bool MqttProtocol::StartMqttClient() {
         } else if (strcmp(type->valuestring, "goodbye") == 0) {
             auto session_id = cJSON_GetObjectItem(root, "session_id");
             if (session_id == nullptr || session_id_ == session_id->valuestring) {
-                if (on_audio_channel_closed_ != nullptr) {
-                    on_audio_channel_closed_();
-                }
+                Application::GetInstance().Schedule([this]() {
+                    CloseAudioChannel();
+                });
             }
         } else if (on_incoming_json_ != nullptr) {
             on_incoming_json_(root);
@@ -105,7 +105,7 @@ void MqttProtocol::SendText(const std::string& text) {
     mqtt_->Publish(publish_topic_, text);
 }
 
-void MqttProtocol::SendAudio(const std::string& data) {
+void MqttProtocol::SendAudio(const std::vector<uint8_t>& data) {
     std::lock_guard<std::mutex> lock(channel_mutex_);
     if (udp_ == nullptr) {
         return;
@@ -127,23 +127,6 @@ void MqttProtocol::SendAudio(const std::string& data) {
         return;
     }
     udp_->Send(encrypted);
-}
-
-void MqttProtocol::SendState(const std::string& state) {
-    std::string message = "{";
-    message += "\"session_id\":\"" + session_id_ + "\",";
-    message += "\"type\":\"state\",";
-    message += "\"state\":\"" + state + "\"";
-    message += "}";
-    SendText(message);
-}
-
-void MqttProtocol::SendAbort() {
-    std::string message = "{";
-    message += "\"session_id\":\"" + session_id_ + "\",";
-    message += "\"type\":\"abort\"";
-    message += "}";
-    SendText(message);
 }
 
 void MqttProtocol::CloseAudioChannel() {
@@ -219,7 +202,7 @@ bool MqttProtocol::OpenAudioChannel() {
             ESP_LOGW(TAG, "Received audio packet with wrong sequence: %lu, expected: %lu", sequence, remote_sequence_ + 1);
         }
 
-        std::string decrypted;
+        std::vector<uint8_t> decrypted;
         size_t decrypted_size = data.size() - aes_nonce_.size();
         size_t nc_off = 0;
         uint8_t stream_block[16] = {0};
@@ -232,7 +215,7 @@ bool MqttProtocol::OpenAudioChannel() {
             return;
         }
         if (on_incoming_audio_ != nullptr) {
-            on_incoming_audio_(decrypted);
+            on_incoming_audio_(std::move(decrypted));
         }
         remote_sequence_ = sequence;
     });

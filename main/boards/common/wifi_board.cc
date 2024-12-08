@@ -1,7 +1,10 @@
 #include "wifi_board.h"
+
+#include "display.h"
 #include "application.h"
 #include "system_info.h"
 #include "font_awesome_symbols.h"
+#include "settings.h"
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
@@ -61,13 +64,12 @@ void WifiBoard::StartNetwork() {
         
         // Wait forever until reset after configuration
         while (true) {
-            vTaskDelay(pdMS_TO_TICKS(1000));
+            int free_sram = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
+            int min_free_sram = heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL);
+            ESP_LOGI(TAG, "Free internal: %u minimal internal: %u", free_sram, min_free_sram);
+            vTaskDelay(pdMS_TO_TICKS(10000));
         }
     }
-}
-
-void WifiBoard::Initialize() {
-    ESP_LOGI(TAG, "Initializing WifiBoard");
 }
 
 Http* WifiBoard::CreateHttp() {
@@ -148,4 +150,16 @@ std::string WifiBoard::GetBoardJson() {
 void WifiBoard::SetPowerSaveMode(bool enabled) {
     auto& wifi_station = WifiStation::GetInstance();
     wifi_station.SetPowerSaveMode(enabled);
+}
+
+void WifiBoard::ResetWifiConfiguration() {
+    // Reset the wifi station
+    {
+        Settings settings("wifi", true);
+        settings.EraseAll();
+    }
+    GetDisplay()->ShowNotification("已重置 WiFi...");
+    vTaskDelay(pdMS_TO_TICKS(1000));
+    // Reboot the device
+    esp_restart();
 }

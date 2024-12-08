@@ -4,7 +4,7 @@
 
 static const char* TAG = "Button";
 
-Button::Button(gpio_num_t gpio_num) : gpio_num_(gpio_num) {
+Button::Button(gpio_num_t gpio_num, bool active_high) : gpio_num_(gpio_num) {
     if (gpio_num == GPIO_NUM_NC) {
         return;
     }
@@ -14,7 +14,7 @@ Button::Button(gpio_num_t gpio_num) : gpio_num_(gpio_num) {
         .short_press_time = 50,
         .gpio_button_config = {
             .gpio_num = gpio_num,
-            .active_level = 0
+            .active_level = static_cast<uint8_t>(active_high ? 1 : 0)
         }
     };
     button_handle_ = iot_button_create(&button_config);
@@ -30,15 +30,28 @@ Button::~Button() {
     }
 }
 
-void Button::OnPress(std::function<void()> callback) {
+void Button::OnPressDown(std::function<void()> callback) {
     if (button_handle_ == nullptr) {
         return;
     }
-    on_press_ = callback;
+    on_press_down_ = callback;
     iot_button_register_cb(button_handle_, BUTTON_PRESS_DOWN, [](void* handle, void* usr_data) {
         Button* button = static_cast<Button*>(usr_data);
-        if (button->on_press_) {
-            button->on_press_();
+        if (button->on_press_down_) {
+            button->on_press_down_();
+        }
+    }, this);
+}
+
+void Button::OnPressUp(std::function<void()> callback) {
+    if (button_handle_ == nullptr) {
+        return;
+    }
+    on_press_up_ = callback;
+    iot_button_register_cb(button_handle_, BUTTON_PRESS_UP, [](void* handle, void* usr_data) {
+        Button* button = static_cast<Button*>(usr_data);
+        if (button->on_press_up_) {
+            button->on_press_up_();
         }
     }, this);
 }

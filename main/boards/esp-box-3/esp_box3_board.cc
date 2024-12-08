@@ -5,6 +5,7 @@
 #include "button.h"
 #include "led.h"
 #include "config.h"
+#include "iot/thing_manager.h"
 
 #include <esp_log.h>
 #include <driver/i2c_master.h>
@@ -19,7 +20,7 @@ private:
     void InitializeI2c() {
         // Initialize I2C peripheral
         i2c_master_bus_config_t i2c_bus_cfg = {
-            .i2c_port = I2C_NUM_1,
+            .i2c_port = (i2c_port_t)1,
             .sda_io_num = AUDIO_CODEC_I2C_SDA_PIN,
             .scl_io_num = AUDIO_CODEC_I2C_SCL_PIN,
             .clk_source = I2C_CLK_SRC_DEFAULT,
@@ -39,15 +40,17 @@ private:
         });
     }
 
-public:
-    EspBox3Board() : boot_button_(BOOT_BUTTON_GPIO) {
+    // 物联网初始化，添加对 AI 可见设备
+    void InitializeIot() {
+        auto& thing_manager = iot::ThingManager::GetInstance();
+        thing_manager.AddThing(iot::CreateThing("Speaker"));
     }
 
-    virtual void Initialize() override {
-        ESP_LOGI(TAG, "Initializing EspBox3Board");
+public:
+    EspBox3Board() : boot_button_(BOOT_BUTTON_GPIO) {
         InitializeI2c();
         InitializeButtons();
-        WifiBoard::Initialize();
+        InitializeIot();
     }
 
     virtual Led* GetBuiltinLed() override {

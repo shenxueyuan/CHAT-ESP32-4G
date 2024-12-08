@@ -6,7 +6,9 @@
 #include "button.h"
 #include "led.h"
 #include "config.h"
+#include "iot/thing_manager.h"
 
+#include <wifi_station.h>
 #include <esp_log.h>
 #include <driver/i2c_master.h>
 
@@ -16,13 +18,14 @@ class CompactWifiBoard : public WifiBoard {
 private:
     i2c_master_bus_handle_t display_i2c_bus_;
     Button boot_button_;
+    Button touch_button_;
     Button volume_up_button_;
     Button volume_down_button_;
     SystemReset system_reset_;
 
     void InitializeDisplayI2c() {
         i2c_master_bus_config_t bus_config = {
-            .i2c_port = I2C_NUM_0,
+            .i2c_port = (i2c_port_t)0,
             .sda_io_num = DISPLAY_SDA_PIN,
             .scl_io_num = DISPLAY_SCL_PIN,
             .clk_source = I2C_CLK_SRC_DEFAULT,
@@ -38,7 +41,17 @@ private:
 
     void InitializeButtons() {
         boot_button_.OnClick([this]() {
-            Application::GetInstance().ToggleChatState();
+            auto& app = Application::GetInstance();
+            if (app.GetChatState() == kChatStateUnknown && !WifiStation::GetInstance().IsConnected()) {
+                ResetWifiConfiguration();
+            }
+            app.ToggleChatState();
+        });
+        touch_button_.OnPressDown([this]() {
+            Application::GetInstance().StartListening();
+        });
+        touch_button_.OnPressUp([this]() {
+            Application::GetInstance().StopListening();
         });
 
         volume_up_button_.OnClick([this]() {
@@ -52,8 +65,7 @@ private:
         });
 
         volume_up_button_.OnLongPress([this]() {
-            auto codec = GetAudioCodec();
-            codec->SetOutputVolume(100);
+            GetAudioCodec()->SetOutputVolume(100);
             GetDisplay()->ShowNotification("最大音量");
         });
 
@@ -68,29 +80,31 @@ private:
         });
 
         volume_down_button_.OnLongPress([this]() {
-            auto codec = GetAudioCodec();
-            codec->SetOutputVolume(0);
+            GetAudioCodec()->SetOutputVolume(0);
             GetDisplay()->ShowNotification("已静音");
         });
+    }
+
+    // 物联网初始化，添加对 AI 可见设备
+    void InitializeIot() {
+        auto& thing_manager = iot::ThingManager::GetInstance();
+        thing_manager.AddThing(iot::CreateThing("Speaker"));
+        thing_manager.AddThing(iot::CreateThing("Lamp"));
     }
 
 public:
     CompactWifiBoard() :
         boot_button_(BOOT_BUTTON_GPIO),
+        touch_button_(TOUCH_BUTTON_GPIO),
         volume_up_button_(VOLUME_UP_BUTTON_GPIO),
         volume_down_button_(VOLUME_DOWN_BUTTON_GPIO),
         system_reset_(RESET_NVS_BUTTON_GPIO, RESET_FACTORY_BUTTON_GPIO) {
-    }
-
-    virtual void Initialize() override {
-        ESP_LOGI(TAG, "Initializing CompactWifiBoard");
         // Check if the reset button is pressed
         system_reset_.CheckButtons();
 
         InitializeDisplayI2c();
         InitializeButtons();
-
-        WifiBoard::Initialize();
+        InitializeIot();
     }
 
     virtual Led* GetBuiltinLed() override {
